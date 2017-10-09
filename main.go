@@ -12,8 +12,11 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"runtime"
 	"strconv"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/containerd/cgroups"
 	"github.com/opencontainers/runtime-spec/specs-go"
@@ -45,6 +48,19 @@ func newPath() string {
 }
 
 func execInNamespace(fd int, args []string) int {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
+	gid := syscall.Getgid()
+	if err := syscall.Setresgid(gid, gid, gid); err != nil {
+		log.Fatalf("Setresgid(%d): %s", gid, err)
+	}
+
+	uid := syscall.Getuid()
+	if err := syscall.Setresuid(uid, uid, uid); err != nil {
+		log.Fatalf("Setresuid(%d): %s", uid, err)
+	}
+
 	rpipe := os.NewFile(uintptr(fd), "rpipe")
 
 	*extraEnv = strings.TrimSpace(*extraEnv)
@@ -151,6 +167,10 @@ func main() {
 		log.Fatalf("cg.Add: %s", err)
 	}
 
+	// give the OS a chance to exec our child and have it waiting
+	// at read(pipe)
+	time.Sleep(10 * time.Millisecond)
+
 	poller, err := NewPoller(cgroup, *frequency)
 	if err != nil {
 		log.Fatalf("NewPoller: %s", err)
@@ -173,10 +193,11 @@ func main() {
 	// - (check cgroup is empty?)
 	// - report on total memory usage
 
-	if *verbose {
+	if *verbose && len(stats.Rss) > 0 {
+		start := stats.Rss[0].Time.UnixNano()
 		for i := 0; i < len(stats.Rss); i++ {
 			r := stats.Rss[i]
-			fmt.Printf("\t%d\t%d\n", r.Time.UnixNano(), r.Value)
+			fmt.Printf("\t%d\t%d\n", r.Time.UnixNano()-start, r.Value)
 		}
 	}
 }
