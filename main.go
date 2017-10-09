@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -212,7 +213,7 @@ func main() {
 
 	var buf bytes.Buffer
 	bio := bufio.NewWriter(&buf)
-	if _, err := bio.WriteString("Time,RSS (bytes)\n"); err != nil {
+	if _, err := bio.WriteString("time\trss\n"); err != nil {
 		log.Fatalf("bio.WriteString: %s", err)
 	}
 
@@ -234,11 +235,20 @@ func main() {
 		}
 	}
 
-	if *verbose && len(stats.Rss) > 0 {
-		start := stats.Rss[0].Time.UnixNano()
-		for i := 0; i < len(stats.Rss); i++ {
-			r := stats.Rss[i]
-			fmt.Printf("\t%d\t%d\n", r.Time.UnixNano()-start, r.Value)
+	if *verbose && len(stats.Stats) > 10 {
+		buf, err := json.Marshal(stats.Stats[len(stats.Stats)-10])
+		if err != nil {
+			log.Fatalf("json.Marshal: %s", err)
 		}
+
+		var out bytes.Buffer
+		json.Indent(&out, buf, "", "    ")
+		out.WriteTo(os.Stdout)
+
+		// start := stats.Rss[0].Time.UnixNano()
+		// for i := 0; i < len(stats.Rss); i++ {
+		// 	r := stats.Rss[i]
+		// 	fmt.Printf("\t%d\t%d\n", r.Time.UnixNano()-start, r.Value)
+		// }
 	}
 }

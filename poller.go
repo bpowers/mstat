@@ -18,7 +18,8 @@ type Record struct {
 }
 
 type Stats struct {
-	Rss []Record
+	Rss   []Record
+	Stats []*cgroups.MemoryStat
 }
 
 type endReq struct {
@@ -66,7 +67,8 @@ func (p *Poller) poll(t time.Time, cgroup cgroups.Cgroup) error {
 		return fmt.Errorf("cg.Stat: returned nil Memory stats")
 	}
 
-	p.stats.Rss = append(p.stats.Rss, Record{t, stats.Memory.TotalRSS})
+	p.stats.Rss = append(p.stats.Rss, Record{t, stats.Memory.Usage.Usage})
+	// p.stats.Stats = append(p.stats.Stats, stats.Memory)
 
 	return nil
 }
