@@ -112,7 +112,7 @@ func main() {
 	cgroupPath := cgroups.StaticPath(newPath())
 
 	memLimit := int64(4 * 1024 * 1024 * 1024) // 4 GB
-	control, err := cgroups.New(cgroups.V1, cgroupPath, &specs.LinuxResources{
+	cgroup, err := cgroups.New(cgroups.V1, cgroupPath, &specs.LinuxResources{
 		//CPU: &specs.LinuxCPU{},
 		Memory: &specs.LinuxMemory{
 			Limit: &memLimit,
@@ -121,7 +121,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("cgroups.New: %s", err)
 	}
-	defer control.Delete()
+	defer cgroup.Delete()
 
 	// create a pipe to signal to our child when it should
 	// actually start running (after we stick it into the cgroup)
@@ -147,11 +147,14 @@ func main() {
 	r.Close()
 	r = nil
 
-	if err := control.Add(cgroups.Process{Pid: cmd.Process.Pid}); err != nil {
+	if err := cgroup.Add(cgroups.Process{Pid: cmd.Process.Pid}); err != nil {
 		log.Fatalf("cg.Add: %s", err)
 	}
 
-	// - start goroutine polling stats (add arg for frequency of polling)
+	poller, err := NewPoller(cgroup, *frequency)
+	if err != nil {
+		log.Fatalf("NewPoller: %s", err)
+	}
 
 	if n, err := w.Write([]byte("ok")); n != 2 || err != nil {
 		log.Fatalf("pipe.Write: %d/%s", n, err)
@@ -166,10 +169,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	stats := poller.End()
 	// - (check cgroup is empty?)
 	// - report on total memory usage
 
 	if *verbose {
-		fmt.Printf("program ran successfully")
+		for i := 0; i < len(stats.Rss); i++ {
+			r := stats.Rss[i]
+			fmt.Printf("\t%d\t%d\n", r.Time.UnixNano(), r.Value)
+		}
 	}
 }
