@@ -22,7 +22,7 @@ all: mstat
 
 mstat:
 	@echo "  GO      $@"
-	go build
+	CGO_ENABLED=0 go build
 
 install:
 	install -D -m 4755 -o root mstat $(DESTDIR)$(BINDIR)/mstat
