@@ -144,7 +144,7 @@ func (m *memoryController) Stat(path string, stats *Metrics) error {
 			}
 			parts = append(parts, tt.name)
 			v, err := readUint(filepath.Join(m.Path(path), strings.Join(parts, ".")))
-			if err != nil {
+			if err != nil && t.module != "memsw" {
 				return err
 			}
 			*tt.value = v
