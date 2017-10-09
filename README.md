@@ -20,7 +20,9 @@ set-UID.  Build it the normal way:
     $ cd mstat
     $ make; sudo make install
 
-Then, use it to measure memory usage over time:
+Then, use it to measure memory usage over time (freq specifies the
+sampling frequency in Hz, bump it up for short-lived programs or fine
+grained reporting):
 
     $ mstat -o data/mem.tsv -freq 59 -- ./test
 

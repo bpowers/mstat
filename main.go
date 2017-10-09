@@ -35,9 +35,9 @@ Options:
 )
 
 var (
-	outputPath = flag.String("o", "", "file to store CSV RSS usage")
+	outputPath = flag.String("o", "", "file to store data as a TSV")
 	verbose    = flag.Bool("v", false, "verbose logging")
-	frequency  = flag.Int("freq", 10, "frequency for memory sampling")
+	frequency  = flag.Int("freq", 10, "frequency in Hz for memory sampling")
 	extraEnv   = flag.String("env", "", "environment variable to set in the child")
 )
 
