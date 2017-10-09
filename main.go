@@ -5,10 +5,13 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"crypto/rand"
 	"encoding/hex"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -31,9 +34,10 @@ Options:
 )
 
 var (
-	verbose   = flag.Bool("v", false, "verbose logging")
-	frequency = flag.Int("freq", 10, "frequency for memory sampling")
-	extraEnv  = flag.String("env", "", "environment variable to set in the child")
+	outputPath = flag.String("o", "", "file to store CSV RSS usage")
+	verbose    = flag.Bool("v", false, "verbose logging")
+	frequency  = flag.Int("freq", 10, "frequency for memory sampling")
+	extraEnv   = flag.String("env", "", "environment variable to set in the child")
 )
 
 func newPath() string {
@@ -189,9 +193,46 @@ func main() {
 		os.Exit(1)
 	}
 
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
+	gid := syscall.Getgid()
+	if err := syscall.Setresgid(gid, gid, gid); err != nil {
+		log.Fatalf("Setresgid(%d): %s", gid, err)
+	}
+
+	uid := syscall.Getuid()
+	if err := syscall.Setresuid(uid, uid, uid); err != nil {
+		log.Fatalf("Setresuid(%d): %s", uid, err)
+	}
+
 	stats := poller.End()
 	// - (check cgroup is empty?)
 	// - report on total memory usage
+
+	var buf bytes.Buffer
+	bio := bufio.NewWriter(&buf)
+	if _, err := bio.WriteString("Time,RSS (bytes)\n"); err != nil {
+		log.Fatalf("bio.WriteString: %s", err)
+	}
+
+	start := stats.Rss[0].Time.UnixNano()
+	for i := 0; i < len(stats.Rss); i++ {
+		r := stats.Rss[i]
+		line := fmt.Sprintf("%d\t%d\n", r.Time.UnixNano()-start, r.Value)
+		if _, err := bio.WriteString(line); err != nil {
+			log.Fatalf("bufio.WriteString: %s", err)
+		}
+	}
+	if err = bio.Flush(); err != nil {
+		log.Fatalf("bio.Flush: %s", err)
+	}
+
+	if *outputPath != "" {
+		if err = ioutil.WriteFile(*outputPath, buf.Bytes(), 0666); err != nil {
+			log.Fatalf("writing output to '%s' failed: %s", *outputPath, err)
+		}
+	}
 
 	if *verbose && len(stats.Rss) > 0 {
 		start := stats.Rss[0].Time.UnixNano()
