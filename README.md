@@ -1,5 +1,17 @@
-mstat -- measure memory usage of a program over time
+`mstat` -- measure memory usage of a program over time
 ====================================================
+
+This tool runs on Linux, taking advantage of the `cgroups` kernel API
+(also used by container infrastructure like Docker) to record memory
+usage of a set of processes over time.  Because `mstat` builds on
+`groups`, we automatically track memory usage of any child-processes
+spawned by the original program.
+
+Additionally, the [Memory
+API](https://godoc.org/github.com/containerd/cgroups#MemoryStat) we
+are using not only gives us detailed information about userspace
+memory usage, but _also_ about kernel memory allocated on behalf of
+the program.  (such as memory used to mange a process's page tables).
 
 This tool only runs on Linux, and requires being installed installed
 set-UID.  Build it the normal way:
@@ -15,15 +27,3 @@ Then, use it to measure memory usage over time:
 And there is even a handy flag to modify the environment:
 
     $ mstat -o data/mem.tsv -freq 59 -env LD_PRELOAD=libawesome.so -- ./test
-
-It uses the Linux kernel `cgroups` API to create a new memory
-controller, and run the program under test in that.
-
-TODO
-----
-
-The [Memory
-API](https://godoc.org/github.com/containerd/cgroups#MemoryStat) we
-are using gives us not only detailed information about the programs
-memory usage, but _also_ about kernel memory allocated on behalf of
-the program.  We should surface that.
