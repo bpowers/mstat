@@ -5,13 +5,13 @@
   branch = "master"
   name = "github.com/containerd/cgroups"
   packages = ["."]
-  revision = "f7dd103d3e4e696aa67152f6b4ddd1779a3455a9"
+  revision = "c0710c92e8b3a44681d1321dcfd1360fc5c6c089"
 
 [[projects]]
   name = "github.com/coreos/go-systemd"
   packages = ["dbus"]
-  revision = "d2196463941895ee908e13531a23a39feb9e1243"
-  version = "v15"
+  revision = "40e2722dffead74698ca12a750f64ef313ddce05"
+  version = "v16"
 
 [[projects]]
   name = "github.com/docker/go-units"
@@ -27,9 +27,13 @@
 
 [[projects]]
   name = "github.com/gogo/protobuf"
-  packages = ["gogoproto","proto","protoc-gen-gogo/descriptor"]
-  revision = "342cbe0a04158f6dcb03ca0079991a51a4248c02"
-  version = "v0.5"
+  packages = [
+    "gogoproto",
+    "proto",
+    "protoc-gen-gogo/descriptor"
+  ]
+  revision = "1adfc126b41513cc696b209667c8656ea7aac67c"
+  version = "v1.0.0"
 
 [[projects]]
   name = "github.com/opencontainers/runtime-spec"
@@ -47,7 +51,7 @@
   branch = "master"
   name = "golang.org/x/sys"
   packages = ["unix"]
-  revision = "1e2299c37cc91a509f1b12369872d27be0ce98a6"
+  revision = "37707fdb30a5b38865cfb95e5aab41707daec7fd"
 
 [solve-meta]
   analyzer-name = "dep"
