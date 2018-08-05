@@ -38,8 +38,24 @@ var (
 	outputPath = flag.String("o", "", "file to store data as a TSV")
 	verbose    = flag.Bool("v", false, "verbose logging")
 	frequency  = flag.Int("freq", 10, "frequency in Hz for memory sampling")
-	extraEnv   = flag.String("env", "", "environment variable to set in the child")
 )
+
+type envFlags []string
+
+func (ef *envFlags) String() string {
+	return strings.Join(*ef, ",")
+}
+
+func (ef *envFlags) Set(value string) error {
+	*ef = append(*ef, value)
+	return nil
+}
+
+func (ef *envFlags) Get() interface{} {
+	return *ef
+}
+
+var envVars envFlags
 
 func newPath() string {
 	buf := make([]byte, 8)
@@ -68,10 +84,9 @@ func execInNamespace(fd int, args []string) int {
 
 	rpipe := os.NewFile(uintptr(fd), "rpipe")
 
-	*extraEnv = strings.TrimSpace(*extraEnv)
 	env := os.Environ()
-	if *extraEnv != "" {
-		env = append(env, *extraEnv)
+	for _, envVar := range envVars {
+		env = append(env, envVar)
 	}
 
 	buf := make([]byte, 16)
@@ -100,6 +115,7 @@ func execInNamespace(fd int, args []string) int {
 }
 
 func main() {
+	flag.Var(&envVars, "env", "add an environmental variable")
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, usage, os.Args[0])
 		flag.PrintDefaults()
@@ -154,7 +170,12 @@ func main() {
 	// use 3 as the file descriptor, as that refers to the first
 	// FD when using ExtraFiles
 	internalFlag := fmt.Sprintf("--INTERNAL_FD=%d", 3) // int(r.Fd())
-	childArgs := append([]string{"-env", *extraEnv, "--", internalFlag}, args...)
+	childArgs := []string{}
+	for _, envVar := range envVars {
+		childArgs = append(childArgs, "-env", envVar)
+	}
+	childArgs = append(childArgs, "--", internalFlag)
+	childArgs = append(childArgs, args...)
 	cmd := exec.Command(os.Args[0], childArgs...)
 	cmd.ExtraFiles = []*os.File{r}
 	cmd.Stdin = os.Stdin
