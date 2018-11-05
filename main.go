@@ -148,11 +148,12 @@ func main() {
 
 	cgroupPath := cgroups.StaticPath(newPath())
 
-	memLimit := int64(4 * 1024 * 1024 * 1024) // 4 GB
+	memLimit := int64(8 * 1024 * 1024 * 1024) // 4 GB
 	cgroup, err := cgroups.New(cgroups.V1, cgroupPath, &specs.LinuxResources{
 		//CPU: &specs.LinuxCPU{},
 		Memory: &specs.LinuxMemory{
-			Limit: &memLimit,
+			Limit:  &memLimit,
+			Kernel: &memLimit,
 		},
 	})
 	if err != nil {
@@ -234,14 +235,14 @@ func main() {
 
 	var buf bytes.Buffer
 	bio := bufio.NewWriter(&buf)
-	if _, err := bio.WriteString("time\trss\n"); err != nil {
+	if _, err := bio.WriteString("time\trss\tkernel\n"); err != nil {
 		log.Fatalf("bio.WriteString: %s", err)
 	}
 
 	start := stats.Rss[0].Time.UnixNano()
 	for i := 0; i < len(stats.Rss); i++ {
 		r := stats.Rss[i]
-		line := fmt.Sprintf("%d\t%d\n", r.Time.UnixNano()-start, r.Value)
+		line := fmt.Sprintf("%d\t%d\t%d\n", r.Time.UnixNano()-start, r.Value, r.Kernel)
 		if _, err := bio.WriteString(line); err != nil {
 			log.Fatalf("bufio.WriteString: %s", err)
 		}
