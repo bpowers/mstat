@@ -13,9 +13,8 @@ import (
 )
 
 type Record struct {
-	Time   time.Time
-	Value  uint64
-	Kernel uint64
+	Time  time.Time
+	Value uint64
 }
 
 type Stats struct {
@@ -68,7 +67,7 @@ func (p *Poller) poll(t time.Time, cgroup cgroups.Cgroup) error {
 		return fmt.Errorf("cg.Stat: returned nil Memory stats")
 	}
 
-	p.stats.Rss = append(p.stats.Rss, Record{t, stats.Memory.Usage.Usage, stats.Memory.Kernel.Usage})
+	p.stats.Rss = append(p.stats.Rss, Record{t, stats.Memory.Usage.Usage})
 	// p.stats.Stats = append(p.stats.Stats, stats.Memory)
 
 	return nil
