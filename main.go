@@ -148,7 +148,7 @@ func main() {
 
 	cgroupPath := cgroups.StaticPath(newPath())
 
-	memLimit := int64(8 * 1024 * 1024 * 1024) // 4 GB
+	memLimit := int64(16 * 1024 * 1024 * 1024)
 	cgroup, err := cgroups.New(cgroups.V1, cgroupPath, &specs.LinuxResources{
 		//CPU: &specs.LinuxCPU{},
 		Memory: &specs.LinuxMemory{

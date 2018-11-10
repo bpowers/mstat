@@ -60,7 +60,7 @@ func NewPoller(cgroup cgroups.Cgroup, freq int) (*Poller, error) {
 
 func (p *Poller) poll(t time.Time, cgroup cgroups.Cgroup) error {
 
-	stats, err := cgroup.Stat(cgroups.ErrorHandler(cgroups.IgnoreNotExist))
+	stats, err := cgroup.Stat()
 	if err != nil || stats == nil {
 		return fmt.Errorf("cg.Stat: %s", err)
 	}
