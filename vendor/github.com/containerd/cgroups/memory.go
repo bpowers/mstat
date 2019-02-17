@@ -121,10 +121,6 @@ func (m *memoryController) Stat(path string, stats *Metrics) error {
 			entry:  stats.Memory.Usage,
 		},
 		{
-			module: "memsw",
-			entry:  stats.Memory.Swap,
-		},
-		{
 			module: "kmem",
 			entry:  stats.Memory.Kernel,
 		},
