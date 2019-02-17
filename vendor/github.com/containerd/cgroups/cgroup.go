@@ -1,3 +1,19 @@
+/*
+   Copyright The containerd Authors.
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+*/
+
 package cgroups
 
 import (
@@ -32,11 +48,12 @@ func New(hierarchy Hierarchy, path Path, resources *specs.LinuxResources) (Cgrou
 
 // Load will load an existing cgroup and allow it to be controlled
 func Load(hierarchy Hierarchy, path Path) (Cgroup, error) {
+	var activeSubsystems []Subsystem
 	subsystems, err := hierarchy()
 	if err != nil {
 		return nil, err
 	}
-	// check the the subsystems still exist
+	// check that the subsystems still exist, and keep only those that actually exist
 	for _, s := range pathers(subsystems) {
 		p, err := path(s.Name())
 		if err != nil {
@@ -47,14 +64,15 @@ func Load(hierarchy Hierarchy, path Path) (Cgroup, error) {
 		}
 		if _, err := os.Lstat(s.Path(p)); err != nil {
 			if os.IsNotExist(err) {
-				return nil, ErrCgroupDeleted
+				continue
 			}
 			return nil, err
 		}
+		activeSubsystems = append(activeSubsystems, s)
 	}
 	return &cgroup{
 		path:       path,
-		subsystems: subsystems,
+		subsystems: activeSubsystems,
 	}, nil
 }
 
@@ -112,6 +130,36 @@ func (c *cgroup) add(process Process) error {
 		}
 		if err := ioutil.WriteFile(
 			filepath.Join(s.Path(p), cgroupProcs),
+			[]byte(strconv.Itoa(process.Pid)),
+			defaultFilePerm,
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// AddTask moves the provided tasks (threads) into the new cgroup
+func (c *cgroup) AddTask(process Process) error {
+	if process.Pid <= 0 {
+		return ErrInvalidPid
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.err != nil {
+		return c.err
+	}
+	return c.addTask(process)
+}
+
+func (c *cgroup) addTask(process Process) error {
+	for _, s := range pathers(c.subsystems) {
+		p, err := c.path(s.Name())
+		if err != nil {
+			return err
+		}
+		if err := ioutil.WriteFile(
+			filepath.Join(s.Path(p), cgroupTasks),
 			[]byte(strconv.Itoa(process.Pid)),
 			defaultFilePerm,
 		); err != nil {
@@ -271,6 +319,49 @@ func (c *cgroup) processes(subsystem Name, recursive bool) ([]Process, error) {
 		return nil
 	})
 	return processes, err
+}
+
+// Tasks returns the tasks running inside the cgroup along
+// with the subsystem used, pid, and path
+func (c *cgroup) Tasks(subsystem Name, recursive bool) ([]Task, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.err != nil {
+		return nil, c.err
+	}
+	return c.tasks(subsystem, recursive)
+}
+
+func (c *cgroup) tasks(subsystem Name, recursive bool) ([]Task, error) {
+	s := c.getSubsystem(subsystem)
+	sp, err := c.path(subsystem)
+	if err != nil {
+		return nil, err
+	}
+	path := s.(pather).Path(sp)
+	var tasks []Task
+	err = filepath.Walk(path, func(p string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !recursive && info.IsDir() {
+			if p == path {
+				return nil
+			}
+			return filepath.SkipDir
+		}
+		dir, name := filepath.Split(p)
+		if name != cgroupTasks {
+			return nil
+		}
+		procs, err := readTasksPids(dir, subsystem)
+		if err != nil {
+			return err
+		}
+		tasks = append(tasks, procs...)
+		return nil
+	})
+	return tasks, err
 }
 
 // Freeze freezes the entire cgroup and all the processes inside it

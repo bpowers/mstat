@@ -1,3 +1,7 @@
 [[constraint]]
   branch = "master"
   name = "github.com/containerd/cgroups"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/opencontainers/runtime-spec"

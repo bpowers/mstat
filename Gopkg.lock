@@ -3,59 +3,78 @@
 
 [[projects]]
   branch = "master"
+  digest = "1:9dbe30a05d375fa36f361681ccd30a7e7876132aec063336dfb2fe6a2a367c3b"
   name = "github.com/containerd/cgroups"
   packages = ["."]
-  revision = "c0710c92e8b3a44681d1321dcfd1360fc5c6c089"
+  pruneopts = ""
+  revision = "39b18af02c4120960f517a3a4c2588fabb61d02c"
 
 [[projects]]
+  digest = "1:94e3b73c12e63e092f82d45771c16055c1b1b13943ed0e62460a84ae79dcf136"
   name = "github.com/coreos/go-systemd"
   packages = ["dbus"]
-  revision = "40e2722dffead74698ca12a750f64ef313ddce05"
-  version = "v16"
+  pruneopts = ""
+  revision = "9002847aa1425fb6ac49077c0a630b3b67e0fbfd"
+  version = "v18"
 
 [[projects]]
+  digest = "1:582d54fcb7233da8dde1dfd2210a5b9675d0685f84246a8d317b07d680c18b1b"
   name = "github.com/docker/go-units"
   packages = ["."]
-  revision = "0dadbb0345b35ec7ef35e228dabb8de89a65bf52"
-  version = "v0.3.2"
+  pruneopts = ""
+  revision = "47565b4f722fb6ceae66b95f853feed578a4a51c"
+  version = "v0.3.3"
 
 [[projects]]
+  digest = "1:cc1255e2fef3819bfab3540277001e602892dd431ef9ab5499bcdbc425923d64"
   name = "github.com/godbus/dbus"
   packages = ["."]
-  revision = "a389bdde4dd695d414e47b755e95e72b7826432c"
-  version = "v4.1.0"
+  pruneopts = ""
+  revision = "2ff6f7ffd60f0f2410b3105864bdd12c7894f844"
+  version = "v5.0.1"
 
 [[projects]]
+  digest = "1:527e1e468c5586ef2645d143e9f5fbd50b4fe5abc8b1e25d9f1c416d22d24895"
   name = "github.com/gogo/protobuf"
   packages = [
     "gogoproto",
     "proto",
-    "protoc-gen-gogo/descriptor"
+    "protoc-gen-gogo/descriptor",
   ]
-  revision = "1adfc126b41513cc696b209667c8656ea7aac67c"
-  version = "v1.0.0"
-
-[[projects]]
-  name = "github.com/opencontainers/runtime-spec"
-  packages = ["specs-go"]
-  revision = "4e3b9264a330d094b0386c3703c5f379119711e8"
-  version = "v1.0.1"
-
-[[projects]]
-  name = "github.com/pkg/errors"
-  packages = ["."]
-  revision = "645ef00459ed84a119197bfb8d8205042c6df63d"
-  version = "v0.8.0"
+  pruneopts = ""
+  revision = "4cbf7e384e768b4e01799441fdf2a706a5635ae7"
+  version = "v1.2.0"
 
 [[projects]]
   branch = "master"
+  digest = "1:7346de2f456551c34c13cf154679d3ee4e3a20ce48a1b7da79d9d218ba65d3fb"
+  name = "github.com/opencontainers/runtime-spec"
+  packages = ["specs-go"]
+  pruneopts = ""
+  revision = "29686dbc5559d93fb1ef402eeda3e35c38d75af4"
+
+[[projects]]
+  digest = "1:1d7e1867c49a6dd9856598ef7c3123604ea3daabf5b83f303ff457bcbc410b1d"
+  name = "github.com/pkg/errors"
+  packages = ["."]
+  pruneopts = ""
+  revision = "ba968bfe8b2f7e042a574c888954fccecfa385b4"
+  version = "v0.8.1"
+
+[[projects]]
+  branch = "master"
+  digest = "1:991cf54090eb6e382daf2f243a0bcabdda4964a664e07feefbef2b7fb6bf2ae1"
   name = "golang.org/x/sys"
   packages = ["unix"]
-  revision = "37707fdb30a5b38865cfb95e5aab41707daec7fd"
+  pruneopts = ""
+  revision = "d0b11bdaac8adb652bff00e49bcacf992835621a"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "5acf69cb458ff011bbb8a4f8dc1da7f15c78a8961ca1b6901ddf4d5a0f1273a8"
+  input-imports = [
+    "github.com/containerd/cgroups",
+    "github.com/opencontainers/runtime-spec/specs-go",
+  ]
   solver-name = "gps-cdcl"
   solver-version = 1
