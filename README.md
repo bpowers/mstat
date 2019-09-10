@@ -29,3 +29,23 @@ grained reporting):
 And there is even a handy flag to modify the environment:
 
     $ mstat -o data/mem.tsv -freq 59 -env LD_PRELOAD=libawesome.so -- ./test
+
+### Use `mstat` without Docker ###
+Prerequisite:
+* [golang](https://golang.org/)
+
+After installing golang and cloning this repository, download all the go dependencies with the command
+
+    $ cd mstat
+    $ go get -d ./...
+
+Then proceed with make and installation. If you want to be able to uninstall
+`mstat` later, instead of using `make install`, use the command below
+
+    $ sudo checkinstall
+
+You will be able to uninstall `mstat` by running
+
+    $ sudo dpkg -r mstat
+
+later. 
