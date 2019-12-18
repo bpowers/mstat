@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/containerd/cgroups"
+	v1 "github.com/containerd/cgroups/stats/v1"
 )
 
 type Record struct {
@@ -20,7 +21,8 @@ type Record struct {
 
 type Stats struct {
 	Rss   []Record
-	Stats []*cgroups.MemoryStat
+	Stats []*v1.Metrics
+	// Stats []*cgroups.MemoryStat
 }
 
 type endReq struct {
@@ -60,7 +62,7 @@ func NewPoller(cgroup cgroups.Cgroup, freq int) (*Poller, error) {
 
 func (p *Poller) poll(t time.Time, cgroup cgroups.Cgroup) error {
 
-	stats, err := cgroup.Stat()
+	stats, err := cgroup.Stat(cgroups.ErrorHandler(cgroups.IgnoreNotExist))
 	if err != nil || stats == nil {
 		return fmt.Errorf("cg.Stat: %s", err)
 	}
