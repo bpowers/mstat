@@ -1,5 +1,5 @@
 # docker build -t bpowers/mstat .
-FROM golang:1.11-stretch as builder
+FROM golang:1.15 as builder
 MAINTAINER Bobby Powers <bobbypowers@gmail.com>
 
 WORKDIR /go/src/github.com/bpowers/mstat
@@ -9,6 +9,6 @@ RUN make \
  && make install PREFIX=/usr/local
 
 
-FROM ubuntu:18.04
+FROM alpine:3
 
 COPY --from=builder /usr/local/bin/mstat /usr/local/bin/
