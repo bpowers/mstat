@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/containerd/cgroups"
-	"github.com/containerd/cgroups/stats/v1"
 )
 
 type Record struct {
@@ -21,7 +20,6 @@ type Record struct {
 
 type Stats struct {
 	Rss   []Record
-	Stats []*v1.MemoryStat
 }
 
 type endReq struct {
@@ -70,7 +68,6 @@ func (p *Poller) poll(t time.Time, cgroup cgroups.Cgroup) error {
 	}
 
 	p.stats.Rss = append(p.stats.Rss, Record{t, stats.Memory.Usage.Usage, stats.Memory.Kernel.Usage})
-	// p.stats.Stats = append(p.stats.Stats, stats.Memory)
 
 	return nil
 }

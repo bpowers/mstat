@@ -9,7 +9,6 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -149,13 +148,14 @@ func main() {
 	cgroupPath := cgroups.StaticPath(newPath())
 
 	memLimit := int64(16 * 1024 * 1024 * 1024)
-	cgroup, err := cgroups.New(cgroups.V1, cgroupPath, &specs.LinuxResources{
+	resources := &specs.LinuxResources{
 		//CPU: &specs.LinuxCPU{},
 		Memory: &specs.LinuxMemory{
 			Limit:  &memLimit,
 			Kernel: &memLimit,
 		},
-	})
+	}
+	cgroup, err := cgroups.New(cgroups.V1, cgroupPath, resources)
 	if err != nil {
 		log.Fatalf("cgroups.New: %s", err)
 	}
@@ -255,22 +255,5 @@ func main() {
 		if err = ioutil.WriteFile(*outputPath, buf.Bytes(), 0666); err != nil {
 			log.Fatalf("writing output to '%s' failed: %s", *outputPath, err)
 		}
-	}
-
-	if *verbose && len(stats.Stats) > 10 {
-		buf, err := json.Marshal(stats.Stats[len(stats.Stats)-10])
-		if err != nil {
-			log.Fatalf("json.Marshal: %s", err)
-		}
-
-		var out bytes.Buffer
-		json.Indent(&out, buf, "", "    ")
-		out.WriteTo(os.Stdout)
-
-		// start := stats.Rss[0].Time.UnixNano()
-		// for i := 0; i < len(stats.Rss); i++ {
-		// 	r := stats.Rss[i]
-		// 	fmt.Printf("\t%d\t%d\n", r.Time.UnixNano()-start, r.Value)
-		// }
 	}
 }
