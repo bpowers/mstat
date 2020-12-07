@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/containerd/cgroups"
+	"github.com/containerd/cgroups/stats/v1"
 )
 
 type Record struct {
@@ -20,7 +21,7 @@ type Record struct {
 
 type Stats struct {
 	Rss   []Record
-	Stats []*cgroups.MemoryStat
+	Stats []*v1.MemoryStat
 }
 
 type endReq struct {
