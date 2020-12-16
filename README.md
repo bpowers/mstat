@@ -13,7 +13,7 @@ are using not only gives us detailed information about userspace
 memory usage, but _also_ about kernel memory allocated on behalf of
 the program.  (such as memory used to mange a process's page tables).
 
-This tool only runs on Linux, and requires being installed installed
+This tool only runs on Linux, and requires being installed
 set-UID.  Build it the normal way:
 
     $ git clone https://github.com/bpowers/mstat
