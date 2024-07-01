@@ -1,4 +1,4 @@
-// Copyright 2017 Bobby Powers. All rights reserved.
+// Copyright 2024 Bobby Powers. All rights reserved.
 // Use of this source code is governed by the ISC
 // license that can be found in the LICENSE file.
 
@@ -11,7 +11,6 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -21,8 +20,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/containerd/cgroups"
-	"github.com/opencontainers/runtime-spec/specs-go"
+	"github.com/containerd/cgroups/v3"
+	"github.com/containerd/cgroups/v3/cgroup2"
 )
 
 const (
@@ -56,7 +55,7 @@ func (ef *envFlags) Get() interface{} {
 
 var envVars envFlags
 
-func newPath() string {
+func newSlice() string {
 	buf := make([]byte, 8)
 	if _, err := rand.Read(buf); err != nil {
 		panic(fmt.Sprintf("rand.Read: %s", err))
@@ -64,7 +63,7 @@ func newPath() string {
 
 	encoded := hex.EncodeToString(buf)
 
-	return fmt.Sprintf("/mstat-%s", encoded)
+	return fmt.Sprintf("/mstat-%s.slice", encoded)
 }
 
 func execInNamespace(fd int, args []string) int {
@@ -97,7 +96,7 @@ func execInNamespace(fd int, args []string) int {
 		log.Fatalf("internal error: Read: %s/%d/%#v", err, n, buf)
 	}
 
-	rpipe.Close()
+	_ = rpipe.Close()
 	rpipe = nil
 
 	cmd := exec.Command(args[0], args[1:]...)
@@ -116,7 +115,7 @@ func execInNamespace(fd int, args []string) int {
 func main() {
 	flag.Var(&envVars, "env", "add an environmental variable")
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, usage, os.Args[0])
+		_, _ = fmt.Fprintf(os.Stderr, usage, os.Args[0])
 		flag.PrintDefaults()
 	}
 	flag.Parse()
@@ -145,21 +144,23 @@ func main() {
 		os.Exit(execInNamespace(fd, args))
 	}
 
-	cgroupPath := cgroups.StaticPath(newPath())
+	if cgroups.Mode() != cgroups.Unified {
+		_, _ = fmt.Fprintf(os.Stderr, "error: expected cgroups v2 support\n")
+		os.Exit(1)
+	}
 
 	memLimit := int64(16 * 1024 * 1024 * 1024)
-	resources := &specs.LinuxResources{
-		//CPU: &specs.LinuxCPU{},
-		Memory: &specs.LinuxMemory{
-			Limit:  &memLimit,
-			Kernel: &memLimit,
+	resources := cgroup2.Resources{
+		Memory: &cgroup2.Memory{
+			Max: &memLimit,
 		},
 	}
-	cgroup, err := cgroups.New(cgroups.V1, cgroupPath, resources)
+	// cgroup, err := cgroup2.NewSystemd("/", newSlice(), -1, &resources)
+	cgroup, err := cgroup2.NewManager("/", newSlice(), &resources)
 	if err != nil {
 		log.Fatalf("cgroups.New: %s", err)
 	}
-	defer cgroup.Delete()
+	defer func() { _ = cgroup.Delete() }()
 
 	// create a pipe to signal to our child when it should
 	// actually start running (after we stick it into the cgroup)
@@ -171,7 +172,7 @@ func main() {
 	// use 3 as the file descriptor, as that refers to the first
 	// FD when using ExtraFiles
 	internalFlag := fmt.Sprintf("--INTERNAL_FD=%d", 3) // int(r.Fd())
-	childArgs := []string{}
+	childArgs := make([]string, 0, len(envVars))
 	for _, envVar := range envVars {
 		childArgs = append(childArgs, "-env", envVar)
 	}
@@ -187,10 +188,10 @@ func main() {
 		log.Fatalf("Start: %s", err)
 	}
 
-	r.Close()
+	_ = r.Close()
 	r = nil
 
-	if err := cgroup.Add(cgroups.Process{Pid: cmd.Process.Pid}); err != nil {
+	if err := cgroup.AddProc(uint64(cmd.Process.Pid)); err != nil {
 		log.Fatalf("cg.Add: %s", err)
 	}
 
@@ -206,13 +207,12 @@ func main() {
 	if n, err := w.Write([]byte("ok")); n != 2 || err != nil {
 		log.Fatalf("pipe.Write: %d/%s", n, err)
 	}
-	w.Close()
+	_ = w.Close()
 	w = nil
 
 	err = cmd.Wait()
 	if err != nil {
-		exitError := err.(*exec.ExitError)
-		log.Printf("error: %#v", exitError)
+		log.Printf("error: %#v", err)
 		os.Exit(1)
 	}
 
@@ -252,7 +252,7 @@ func main() {
 	}
 
 	if *outputPath != "" {
-		if err = ioutil.WriteFile(*outputPath, buf.Bytes(), 0666); err != nil {
+		if err = os.WriteFile(*outputPath, buf.Bytes(), 0o666); err != nil {
 			log.Fatalf("writing output to '%s' failed: %s", *outputPath, err)
 		}
 	}

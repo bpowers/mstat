@@ -1,4 +1,4 @@
-// Copyright 2017 Bobby Powers. All rights reserved.
+// Copyright 2024 Bobby Powers. All rights reserved.
 // Use of this source code is governed by the ISC
 // license that can be found in the LICENSE file.
 
@@ -9,7 +9,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/containerd/cgroups"
+	"github.com/containerd/cgroups/v3/cgroup2"
 )
 
 type Record struct {
@@ -19,7 +19,7 @@ type Record struct {
 }
 
 type Stats struct {
-	Rss   []Record
+	Rss []Record
 }
 
 type endReq struct {
@@ -31,7 +31,7 @@ type Poller struct {
 	stats *Stats
 }
 
-func NewPoller(cgroup cgroups.Cgroup, freq int) (*Poller, error) {
+func NewPoller(cgroup *cgroup2.Manager, freq int) (*Poller, error) {
 	durationStr := fmt.Sprintf("%fs", 1/float64(freq))
 	duration, err := time.ParseDuration(durationStr)
 	if err != nil {
@@ -57,9 +57,9 @@ func NewPoller(cgroup cgroups.Cgroup, freq int) (*Poller, error) {
 	return p, nil
 }
 
-func (p *Poller) poll(t time.Time, cgroup cgroups.Cgroup) error {
+func (p *Poller) poll(t time.Time, cgroup *cgroup2.Manager) error {
 
-	stats, err := cgroup.Stat(cgroups.IgnoreNotExist)
+	stats, err := cgroup.Stat()
 	if err != nil || stats == nil {
 		return fmt.Errorf("cg.Stat: %s", err)
 	}
@@ -67,14 +67,15 @@ func (p *Poller) poll(t time.Time, cgroup cgroups.Cgroup) error {
 		return fmt.Errorf("cg.Stat: returned nil Memory stats")
 	}
 
-	p.stats.Rss = append(p.stats.Rss, Record{t, stats.Memory.Usage.Usage, stats.Memory.Kernel.Usage})
+	kernel := stats.Memory.GetKernelStack() // TODO: also add pagetables, etc
+	p.stats.Rss = append(p.stats.Rss, Record{t, stats.Memory.GetUsage(), kernel})
 
 	return nil
 }
 
 // loop that runs in its own goroutine, reading stats at the desired
 // frequency until shouldEnd is received
-func (p *Poller) poller(cgroup cgroups.Cgroup, shouldEnd <-chan *endReq, duration time.Duration) {
+func (p *Poller) poller(cgroup *cgroup2.Manager, shouldEnd <-chan *endReq, duration time.Duration) {
 
 	ticker := time.NewTicker(duration)
 	defer ticker.Stop()
