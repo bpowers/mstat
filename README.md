@@ -14,8 +14,9 @@ Additionally, on cgroups v1 systems, the [Memory
 API](https://godoc.org/github.com/containerd/cgroups) we are using
 gives us detailed information about userspace memory usage, as well as
 kernel memory allocated on behalf of the program (such as memory used
-to manage a process's page tables). Note: kernel memory tracking is
-deprecated in cgroups v2.
+to manage a process's page tables). Note: in cgroups v2, the separate
+kernel memory controller was removed - kernel memory is included in the
+total usage but cannot be queried separately.
 
 This tool only runs on Linux, and requires being installed set-UID.
 Build it the normal way:
@@ -41,6 +42,6 @@ Use `-v` for verbose mode to see which cgroups version is being used:
 
 ## Requirements
 
-- Go 1.21 or later
+- Go 1.24 or later
 - Linux with cgroups v1 or v2 support
 - Root privileges (or setuid binary) to create cgroups

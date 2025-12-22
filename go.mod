@@ -1,8 +1,6 @@
 module github.com/bpowers/mstat
 
-go 1.22.0
-
-toolchain go1.24.7
+go 1.24
 
 require (
 	github.com/containerd/cgroups/v3 v3.0.5

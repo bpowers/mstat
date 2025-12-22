@@ -1,5 +1,5 @@
 # docker build -t bpowers/mstat .
-FROM golang:1.22-alpine as builder
+FROM golang:1.24-alpine as builder
 
 WORKDIR /go/src/github.com/bpowers/mstat
 COPY . .

@@ -20,7 +20,7 @@ import (
 // MemoryStat holds memory statistics from the cgroup
 type MemoryStat struct {
 	Usage  uint64
-	Kernel uint64 // Note: kernel memory tracking is deprecated/removed in cgroups v2
+	Kernel uint64 // Separate kernel memory tracking (v1 only; in v2 it's included in Usage)
 }
 
 // CgroupManager provides an abstraction over cgroups v1 and v2
@@ -180,11 +180,12 @@ func (m *cgroupV2Manager) Stat() (*MemoryStat, error) {
 		return nil, fmt.Errorf("manager.Stat returned nil memory stats")
 	}
 
-	// In cgroups v2, kernel memory accounting is part of the overall usage
-	// and is not tracked separately (kernel memory controller was deprecated)
+	// In cgroups v2, kernel memory is included in the total usage and cannot
+	// be queried separately. The separate kmem controller was removed in v2.
+	// See: https://github.com/opencontainers/runtime-spec/issues/1005
 	return &MemoryStat{
 		Usage:  stats.Memory.Usage,
-		Kernel: 0, // Not available in v2
+		Kernel: 0, // Not separately tracked in v2 (included in Usage)
 	}, nil
 }
 
