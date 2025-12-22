@@ -6,10 +6,6 @@ package main
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
-	"strconv"
-	"strings"
 
 	"github.com/containerd/cgroups/v3"
 	"github.com/containerd/cgroups/v3/cgroup1"
@@ -33,7 +29,6 @@ type CgroupManager interface {
 // cgroupV1Manager wraps cgroup1.Cgroup
 type cgroupV1Manager struct {
 	cgroup cgroup1.Cgroup
-	path   string
 }
 
 // cgroupV2Manager wraps cgroup2.Manager
@@ -83,7 +78,7 @@ func newV1Manager(path string, memLimit int64) (*cgroupV1Manager, error) {
 		return nil, fmt.Errorf("cgroup1.New: %w", err)
 	}
 
-	return &cgroupV1Manager{cgroup: cg, path: path}, nil
+	return &cgroupV1Manager{cgroup: cg}, nil
 }
 
 func (m *cgroupV1Manager) Add(pid int) error {
@@ -95,50 +90,14 @@ func (m *cgroupV1Manager) Stat() (*MemoryStat, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cgroup.Stat: %w", err)
 	}
-
-	// If we got full stats, use them
-	if stats != nil && stats.Memory != nil {
-		return &MemoryStat{
-			Usage:  stats.Memory.Usage.Usage,
-			Kernel: stats.Memory.Kernel.Usage,
-		}, nil
+	if stats == nil || stats.Memory == nil {
+		return nil, fmt.Errorf("cgroup.Stat returned nil memory stats")
 	}
-
-	// Fallback: read memory.usage_in_bytes directly
-	// This handles limited cgroup environments (e.g., some containers)
-	// that don't expose memory.stat but do expose memory.usage_in_bytes
-	return m.readMemoryUsageDirect()
-}
-
-// readMemoryUsageDirect reads memory usage directly from cgroup files
-// as a fallback when the library's Stat() doesn't return memory info
-func (m *cgroupV1Manager) readMemoryUsageDirect() (*MemoryStat, error) {
-	memRoot := "/sys/fs/cgroup/memory"
-	usagePath := filepath.Join(memRoot, m.path, "memory.usage_in_bytes")
-
-	usage, err := readUint64File(usagePath)
-	if err != nil {
-		return nil, fmt.Errorf("reading memory.usage_in_bytes: %w", err)
-	}
-
-	// Try to read kernel memory, but don't fail if unavailable
-	var kernel uint64
-	kernelPath := filepath.Join(memRoot, m.path, "memory.kmem.usage_in_bytes")
-	kernel, _ = readUint64File(kernelPath) // Ignore errors, kernel memory might not be available
 
 	return &MemoryStat{
-		Usage:  usage,
-		Kernel: kernel,
+		Usage:  stats.Memory.Usage.Usage,
+		Kernel: stats.Memory.Kernel.Usage,
 	}, nil
-}
-
-// readUint64File reads a uint64 value from a cgroup file
-func readUint64File(path string) (uint64, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return 0, err
-	}
-	return strconv.ParseUint(strings.TrimSpace(string(data)), 10, 64)
 }
 
 func (m *cgroupV1Manager) Delete() error {
