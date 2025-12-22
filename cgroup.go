@@ -1,0 +1,193 @@
+// Copyright 2017 Bobby Powers. All rights reserved.
+// Use of this source code is governed by the ISC
+// license that can be found in the LICENSE file.
+
+package main
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+
+	"github.com/containerd/cgroups/v3"
+	"github.com/containerd/cgroups/v3/cgroup1"
+	"github.com/containerd/cgroups/v3/cgroup2"
+	specs "github.com/opencontainers/runtime-spec/specs-go"
+)
+
+// MemoryStat holds memory statistics from the cgroup
+type MemoryStat struct {
+	Usage  uint64
+	Kernel uint64 // Note: kernel memory tracking is deprecated/removed in cgroups v2
+}
+
+// CgroupManager provides an abstraction over cgroups v1 and v2
+type CgroupManager interface {
+	Add(pid int) error
+	Stat() (*MemoryStat, error)
+	Delete() error
+}
+
+// cgroupV1Manager wraps cgroup1.Cgroup
+type cgroupV1Manager struct {
+	cgroup cgroup1.Cgroup
+	path   string
+}
+
+// cgroupV2Manager wraps cgroup2.Manager
+type cgroupV2Manager struct {
+	manager *cgroup2.Manager
+}
+
+// NewCgroupManager creates a cgroup manager for the current system
+// It auto-detects whether to use v1 or v2 based on system configuration
+func NewCgroupManager(path string, memLimit int64) (CgroupManager, error) {
+	mode := cgroups.Mode()
+
+	switch mode {
+	case cgroups.Unified:
+		return newV2Manager(path, memLimit)
+	case cgroups.Legacy, cgroups.Hybrid:
+		return newV1Manager(path, memLimit)
+	default:
+		return nil, fmt.Errorf("cgroups not available on this system (mode: %v)", mode)
+	}
+}
+
+// CgroupMode returns a string describing the cgroup mode
+func CgroupMode() string {
+	mode := cgroups.Mode()
+	switch mode {
+	case cgroups.Unified:
+		return "unified (v2)"
+	case cgroups.Legacy:
+		return "legacy (v1)"
+	case cgroups.Hybrid:
+		return "hybrid (v1+v2)"
+	default:
+		return "unavailable"
+	}
+}
+
+func newV1Manager(path string, memLimit int64) (*cgroupV1Manager, error) {
+	resources := &specs.LinuxResources{
+		Memory: &specs.LinuxMemory{
+			Limit: &memLimit,
+		},
+	}
+
+	cg, err := cgroup1.New(cgroup1.StaticPath(path), resources)
+	if err != nil {
+		return nil, fmt.Errorf("cgroup1.New: %w", err)
+	}
+
+	return &cgroupV1Manager{cgroup: cg, path: path}, nil
+}
+
+func (m *cgroupV1Manager) Add(pid int) error {
+	return m.cgroup.Add(cgroup1.Process{Pid: pid})
+}
+
+func (m *cgroupV1Manager) Stat() (*MemoryStat, error) {
+	stats, err := m.cgroup.Stat(cgroup1.IgnoreNotExist)
+	if err != nil {
+		return nil, fmt.Errorf("cgroup.Stat: %w", err)
+	}
+
+	// If we got full stats, use them
+	if stats != nil && stats.Memory != nil {
+		return &MemoryStat{
+			Usage:  stats.Memory.Usage.Usage,
+			Kernel: stats.Memory.Kernel.Usage,
+		}, nil
+	}
+
+	// Fallback: read memory.usage_in_bytes directly
+	// This handles limited cgroup environments (e.g., some containers)
+	// that don't expose memory.stat but do expose memory.usage_in_bytes
+	return m.readMemoryUsageDirect()
+}
+
+// readMemoryUsageDirect reads memory usage directly from cgroup files
+// as a fallback when the library's Stat() doesn't return memory info
+func (m *cgroupV1Manager) readMemoryUsageDirect() (*MemoryStat, error) {
+	memRoot := "/sys/fs/cgroup/memory"
+	usagePath := filepath.Join(memRoot, m.path, "memory.usage_in_bytes")
+
+	usage, err := readUint64File(usagePath)
+	if err != nil {
+		return nil, fmt.Errorf("reading memory.usage_in_bytes: %w", err)
+	}
+
+	// Try to read kernel memory, but don't fail if unavailable
+	var kernel uint64
+	kernelPath := filepath.Join(memRoot, m.path, "memory.kmem.usage_in_bytes")
+	kernel, _ = readUint64File(kernelPath) // Ignore errors, kernel memory might not be available
+
+	return &MemoryStat{
+		Usage:  usage,
+		Kernel: kernel,
+	}, nil
+}
+
+// readUint64File reads a uint64 value from a cgroup file
+func readUint64File(path string) (uint64, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return 0, err
+	}
+	return strconv.ParseUint(strings.TrimSpace(string(data)), 10, 64)
+}
+
+func (m *cgroupV1Manager) Delete() error {
+	return m.cgroup.Delete()
+}
+
+func newV2Manager(path string, memLimit int64) (*cgroupV2Manager, error) {
+	// In cgroups v2, we use the unified hierarchy under /sys/fs/cgroup
+	// The path should be relative to the cgroup root
+	resources := &cgroup2.Resources{
+		Memory: &cgroup2.Memory{
+			Max: &memLimit,
+		},
+	}
+
+	// Remove leading slash if present for v2
+	if len(path) > 0 && path[0] == '/' {
+		path = path[1:]
+	}
+
+	mgr, err := cgroup2.NewManager("/sys/fs/cgroup", "/"+path, resources)
+	if err != nil {
+		return nil, fmt.Errorf("cgroup2.NewManager: %w", err)
+	}
+
+	return &cgroupV2Manager{manager: mgr}, nil
+}
+
+func (m *cgroupV2Manager) Add(pid int) error {
+	return m.manager.AddProc(uint64(pid))
+}
+
+func (m *cgroupV2Manager) Stat() (*MemoryStat, error) {
+	stats, err := m.manager.Stat()
+	if err != nil {
+		return nil, fmt.Errorf("manager.Stat: %w", err)
+	}
+	if stats == nil || stats.Memory == nil {
+		return nil, fmt.Errorf("manager.Stat returned nil memory stats")
+	}
+
+	// In cgroups v2, kernel memory accounting is part of the overall usage
+	// and is not tracked separately (kernel memory controller was deprecated)
+	return &MemoryStat{
+		Usage:  stats.Memory.Usage,
+		Kernel: 0, // Not available in v2
+	}, nil
+}
+
+func (m *cgroupV2Manager) Delete() error {
+	return m.manager.Delete()
+}

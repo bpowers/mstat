@@ -11,7 +11,6 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -20,9 +19,6 @@ import (
 	"strings"
 	"syscall"
 	"time"
-
-	"github.com/containerd/cgroups"
-	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
 const (
@@ -145,19 +141,16 @@ func main() {
 		os.Exit(execInNamespace(fd, args))
 	}
 
-	cgroupPath := cgroups.StaticPath(newPath())
+	cgroupPath := newPath()
+
+	if *verbose {
+		log.Printf("mstat: using cgroups mode: %s", CgroupMode())
+	}
 
 	memLimit := int64(16 * 1024 * 1024 * 1024)
-	resources := &specs.LinuxResources{
-		//CPU: &specs.LinuxCPU{},
-		Memory: &specs.LinuxMemory{
-			Limit:  &memLimit,
-			Kernel: &memLimit,
-		},
-	}
-	cgroup, err := cgroups.New(cgroups.V1, cgroupPath, resources)
+	cgroup, err := NewCgroupManager(cgroupPath, memLimit)
 	if err != nil {
-		log.Fatalf("cgroups.New: %s", err)
+		log.Fatalf("NewCgroupManager: %s", err)
 	}
 	defer cgroup.Delete()
 
@@ -190,8 +183,8 @@ func main() {
 	r.Close()
 	r = nil
 
-	if err := cgroup.Add(cgroups.Process{Pid: cmd.Process.Pid}); err != nil {
-		log.Fatalf("cg.Add: %s", err)
+	if err := cgroup.Add(cmd.Process.Pid); err != nil {
+		log.Fatalf("cgroup.Add: %s", err)
 	}
 
 	// give the OS a chance to exec our child and have it waiting
@@ -252,7 +245,7 @@ func main() {
 	}
 
 	if *outputPath != "" {
-		if err = ioutil.WriteFile(*outputPath, buf.Bytes(), 0666); err != nil {
+		if err = os.WriteFile(*outputPath, buf.Bytes(), 0666); err != nil {
 			log.Fatalf("writing output to '%s' failed: %s", *outputPath, err)
 		}
 	}
