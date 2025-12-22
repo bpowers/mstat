@@ -1,11 +1,11 @@
 # docker build -t bpowers/mstat .
-FROM golang:1.15 as builder
-MAINTAINER Bobby Powers <bobbypowers@gmail.com>
+FROM golang:1.24-alpine as builder
 
 WORKDIR /go/src/github.com/bpowers/mstat
 COPY . .
 
-RUN make \
+RUN apk add --no-cache make \
+ && make \
  && make install PREFIX=/usr/local
 
 

@@ -8,8 +8,6 @@ import (
 	"fmt"
 	"log"
 	"time"
-
-	"github.com/containerd/cgroups"
 )
 
 type Record struct {
@@ -19,7 +17,7 @@ type Record struct {
 }
 
 type Stats struct {
-	Rss   []Record
+	Rss []Record
 }
 
 type endReq struct {
@@ -31,7 +29,7 @@ type Poller struct {
 	stats *Stats
 }
 
-func NewPoller(cgroup cgroups.Cgroup, freq int) (*Poller, error) {
+func NewPoller(cgroup CgroupManager, freq int) (*Poller, error) {
 	durationStr := fmt.Sprintf("%fs", 1/float64(freq))
 	duration, err := time.ParseDuration(durationStr)
 	if err != nil {
@@ -57,24 +55,20 @@ func NewPoller(cgroup cgroups.Cgroup, freq int) (*Poller, error) {
 	return p, nil
 }
 
-func (p *Poller) poll(t time.Time, cgroup cgroups.Cgroup) error {
-
-	stats, err := cgroup.Stat(cgroups.IgnoreNotExist)
-	if err != nil || stats == nil {
-		return fmt.Errorf("cg.Stat: %s", err)
-	}
-	if stats.Memory == nil {
-		return fmt.Errorf("cg.Stat: returned nil Memory stats")
+func (p *Poller) poll(t time.Time, cgroup CgroupManager) error {
+	stats, err := cgroup.Stat()
+	if err != nil {
+		return fmt.Errorf("cgroup.Stat: %w", err)
 	}
 
-	p.stats.Rss = append(p.stats.Rss, Record{t, stats.Memory.Usage.Usage, stats.Memory.Kernel.Usage})
+	p.stats.Rss = append(p.stats.Rss, Record{t, stats.Usage, stats.Kernel})
 
 	return nil
 }
 
 // loop that runs in its own goroutine, reading stats at the desired
 // frequency until shouldEnd is received
-func (p *Poller) poller(cgroup cgroups.Cgroup, shouldEnd <-chan *endReq, duration time.Duration) {
+func (p *Poller) poller(cgroup CgroupManager, shouldEnd <-chan *endReq, duration time.Duration) {
 
 	ticker := time.NewTicker(duration)
 	defer ticker.Stop()
