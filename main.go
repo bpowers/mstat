@@ -228,14 +228,14 @@ func main() {
 
 	var buf bytes.Buffer
 	bio := bufio.NewWriter(&buf)
-	if _, err := bio.WriteString("time\trss\tkernel\n"); err != nil {
+	if _, err := bio.WriteString("time\trss\tkernel\thugetlb\n"); err != nil {
 		log.Fatalf("bio.WriteString: %s", err)
 	}
 
 	start := stats.Rss[0].Time.UnixNano()
 	for i := 0; i < len(stats.Rss); i++ {
 		r := stats.Rss[i]
-		line := fmt.Sprintf("%d\t%d\t%d\n", r.Time.UnixNano()-start, r.Value, r.Kernel)
+		line := fmt.Sprintf("%d\t%d\t%d\t%d\n", r.Time.UnixNano()-start, r.Value, r.Kernel, r.Hugetlb)
 		if _, err := bio.WriteString(line); err != nil {
 			log.Fatalf("bufio.WriteString: %s", err)
 		}
