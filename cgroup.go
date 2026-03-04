@@ -15,8 +15,9 @@ import (
 
 // MemoryStat holds memory statistics from the cgroup
 type MemoryStat struct {
-	Usage  uint64
-	Kernel uint64 // Separate kernel memory tracking (v1 only; in v2 it's included in Usage)
+	Usage   uint64
+	Kernel  uint64 // Separate kernel memory tracking (v1 only; in v2 it's included in Usage)
+	Hugetlb uint64 // Hugetlb usage (not included in standard RSS)
 }
 
 // CgroupManager provides an abstraction over cgroups v1 and v2
@@ -111,6 +112,7 @@ func newV2Manager(path string, memLimit int64) (*cgroupV2Manager, error) {
 		Memory: &cgroup2.Memory{
 			Max: &memLimit,
 		},
+		HugeTlb: &cgroup2.HugeTlb{},
 	}
 
 	// Remove leading slash if present for v2
@@ -142,9 +144,14 @@ func (m *cgroupV2Manager) Stat() (*MemoryStat, error) {
 	// In cgroups v2, kernel memory is included in the total usage and cannot
 	// be queried separately. The separate kmem controller was removed in v2.
 	// See: https://github.com/opencontainers/runtime-spec/issues/1005
+	var hugetlb uint64
+	for _, h := range stats.Hugetlb {
+		hugetlb += h.Current
+	}
 	return &MemoryStat{
-		Usage:  stats.Memory.Usage,
-		Kernel: 0, // Not separately tracked in v2 (included in Usage)
+		Usage:   stats.Memory.Usage,
+		Kernel:  0, // Not separately tracked in v2 (included in Usage)
+		Hugetlb: hugetlb,
 	}, nil
 }
 

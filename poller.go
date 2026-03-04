@@ -11,9 +11,10 @@ import (
 )
 
 type Record struct {
-	Time   time.Time
-	Value  uint64
-	Kernel uint64
+	Time    time.Time
+	Value   uint64
+	Kernel  uint64
+	Hugetlb uint64
 }
 
 type Stats struct {
@@ -61,7 +62,7 @@ func (p *Poller) poll(t time.Time, cgroup CgroupManager) error {
 		return fmt.Errorf("cgroup.Stat: %w", err)
 	}
 
-	p.stats.Rss = append(p.stats.Rss, Record{t, stats.Usage, stats.Kernel})
+	p.stats.Rss = append(p.stats.Rss, Record{t, stats.Usage, stats.Kernel, stats.Hugetlb})
 
 	return nil
 }
